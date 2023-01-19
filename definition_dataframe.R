@@ -8,6 +8,7 @@ inp_links_df<-read.csv("ml-latest-small/links.csv")
 
 
 inp_movies_df <- inp_movies_df %>% mutate(year = as.numeric(str_extract(title, "(?<=\\()[0-9]{4}(?=\\))")))
+inp_movies_df <- inp_movies_df %>% mutate(title_str = str_extract(title, ".*(?= \\()"))
 
 user_movie_df <- inp_ratings_df %>% merge(inp_movies_df, by='movieId') %>% mutate(date_watch = as.Date(as.POSIXct(timestamp, origin="1970-01-01")))
 
@@ -56,7 +57,9 @@ user_summary <- user_movie_df %>%
     #nbr_films_watched = n_distinct(movieId),
     #average_rating = mean(rating),
     #oldest_film_watched = min(date_watch),
-    oldest_film_watched_ts = min(timestamp)
+    last_film_watched_ts = min(timestamp),
+    oldest_film_watched_ts = min(year)
+    
   ) %>% 
   merge(genre_by_user) %>%
   merge(decedes_by_user)
@@ -77,6 +80,12 @@ movies_pivoted <- user_movie_df %>% select(movieId,userId,rating) %>% filter(mov
   pivot_wider(values_from = rating, names_from =movieId)
 
 
-
 final_df <- user_summary %>% inner_join(movies_pivoted, by = 'userId')
+
+
+mov_id_name <- inp_movies_df %>% select(movieId,title = title_str)
+df_colmuns = (colnames(final_df))
+
+user_cols <- df_colmuns[2:69]
+film_cols <-df_colmuns[70:577]
 

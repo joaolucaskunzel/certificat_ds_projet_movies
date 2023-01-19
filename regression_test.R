@@ -1,5 +1,5 @@
 #https://towardsdatascience.com/xgboost-is-not-black-magic-56ca013144b4
-
+source("definition_dataframe.R")
 
 library(tidyverse)
 library(corrplot)
@@ -8,56 +8,13 @@ library(xgboost)
 library(caret)     
 library(imputeTS)
 
-inp_movies_df<-read.csv("ml-latest-small/movies.csv")
-inp_ratings_df<-read.csv("ml-latest-small/ratings.csv")
-inp_tags_df<-read.csv("ml-latest-small/tags.csv")
-inp_links_df<-read.csv("ml-latest-small/links.csv")
 
-user_movie_df <- inp_ratings_df %>% merge(inp_movies_df, by='movieId') %>% mutate(date_watch = as.Date(as.POSIXct(timestamp, origin="1970-01-01")))
-
-#==== characterize user ================
-favorite_genre_by_user <- user_movie_df %>% select(userId,movieId, genres) %>% separate(genres,c('genre1','genre2','genre3','genre4','genre5','genre6')) %>%
-  pivot_longer(c('genre1','genre2','genre3','genre4','genre5','genre6'), names_to = 'genres_all') %>%
-  drop_na() %>%
-  group_by(userId,value) %>% summarise(count_gen=n()) %>% arrange(userId,-count_gen, by_group = TRUE) %>%
-  filter(row_number()==1) %>% select (userId, fav_genre=value)
+cor_mat <- cor(movies_pivoted%>% select(-userId), use = 'pairwise.complete.obs')
+corrplot(cor_mat[1:30,1:30])
 
 
-user_summary <- user_movie_df %>% group_by(userId) %>% summarise(nbr_films_watched = n_distinct(movieId),
-                                                                 average_rating = mean(rating),
-                                                                 oldest_film_watched = min(date_watch),
-                                                                 oldest_film_watched_ts = min(timestamp)
-) %>%
-  merge(favorite_genre_by_user)
+#plot(movies_pivoted%>% select('293','350',-userId)  %>% drop_na())
 
-
-nbr_vues_film <- user_movie_df %>% group_by(movieId, title) %>% summarise(total_views = n()) %>% arrange(-total_views)
-nbr_vues_film_500 <- nbr_vues_film %>% filter (total_views>=46)
-
-nbr_vues_user <- user_movie_df %>% group_by(userId) %>% summarise(total_views = n()) %>% arrange(-total_views)
-nbr_vues_user_40 <- nbr_vues_user %>% filter (total_views>=40)
-
-most_seen_films <- nbr_vues_film %>% head(50)
-
-user_movie_df %>% summarise(tot_users = n_distinct(userId), tot_films = n_distinct(movieId))
-
-favorite_genre_by_user %>% ungroup() %>% summarise(nbr_genres = n_distinct(fav_genre))
-
-
-#========== create pivoted movies list data frame ===============
-user_mobie_pivoted_df <- user_movie_df %>% select(movieId,userId,rating) %>% filter(movieId %in% as.list(nbr_vues_film_500['movieId'])$movieId) %>%
-  filter(userId %in% as.list(nbr_vues_user_40['userId'])$userId) %>%
-  pivot_wider(values_from = rating, names_from =movieId)
-
-
-final_df <- user_summary %>% inner_join(user_mobie_pivoted_df, by = 'userId')
-
-
-cor_mat <- cor(user_mobie_pivoted_df%>% select(-userId), use = 'pairwise.complete.obs')
-corrplot(cor_mat[50:80,50:80])
-
-
-plot(user_mobie_pivoted_df%>% select('293','350',-userId)  %>% drop_na())
 
 
 
@@ -65,19 +22,42 @@ plot(user_mobie_pivoted_df%>% select('293','350',-userId)  %>% drop_na())
 
 set.seed(1)
 
-target_film = '2'
+target_film = '1'
 
 cor_film <- cor_mat[,target_film] 
 films_high_cor<-names(cor_film[abs(cor_film)>0.1])
-tage_inc<-c("userId","nbr_films_watched","average_rating","oldest_film_watched","oldest_film_watched_ts","fav_genre")
-final_df_filt <- final_df %>% select(tage_inc,films_high_cor)
+
+#====mat complete=====
+svd_mat <- softImpute(final_df[film_cols], trace=TRUE, type = "svd")
+
+xs <- as(data.matrix(final_df[film_cols]), "Incomplete")
+lam0 <- lambda0(xs)
+
+fit0 <- softImpute(xs, lambda = 1 + .2)
+
+inp_matrix <- softImpute::complete(final_df[film_cols], svd_mat)
+inp_matrix_reg <- softImpute::complete(final_df[film_cols], fit0)
+
+completed_user_movie_df <- cbind(final_df[c('userId',user_cols)], inp_matrix) %>%
+      select(-target_film) %>% 
+      cbind(final_df[target_film]) %>% 
+      drop_na(target_film)
+
+tage_inc<-c("userId","oldest_film_watched_ts")
 
 #use 70% of dataset as training set and 30% as test set 
-train <- final_df_filt %>% drop_na(target_film) %>% sample_frac(0.70)  %>% replace(is.na(.), 0)
-test  <- final_df_filt %>% drop_na(target_film) %>% anti_join(train, by = 'userId') %>% replace(is.na(.), 0)
+# 
+# final_df_filt <- final_df %>% select(tage_inc,starts_with('avg_'), starts_with('count_'),films_high_cor)
+# train <- final_df_filt %>% drop_na(target_film) %>% sample_frac(0.70)  %>% replace(is.na(.), 0)
+# test  <- final_df_filt %>% drop_na(target_film) %>% anti_join(train, by = 'userId') %>% replace(is.na(.), 0)
+# 
+# train <- na_mean(train)
+# test <- na_mean(test)
 
-train <- na_mean(train)
-test <- na_mean(test)
+final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'), target_film) #,films_high_cor
+
+train <- final_df_filt %>% sample_frac(0.8)
+test  <- final_df_filt %>% anti_join(train, by = 'userId')
 
 data_train <- data.matrix(train %>% select(-userId,-oldest_film_watched_ts, -target_film))
 target_train <- (train %>%  select(target_film))[,1]
@@ -97,13 +77,35 @@ bstSparse <- xgboost(data = data_train, label = target_train, max.depth = 2, eta
 
 #================TEST=============
 pred_y = predict(bstSparse, data_test, target_test)
-
 pred_y_round = round(pred_y*2)/2
 
-sqrt(mean((target_test - pred_y)^2)) #rmse - Root Mean Squared Error
+rmse_pred = sqrt(mean((target_test - pred_y)^2)) #rmse - Root Mean Squared Error
+print(paste0('predicted RMSE: ',rmse_pred))
 
-plot(target_test, pred_y)
+rmse_mean = sqrt(mean((target_test - mean(target_train))^2)) #rmse - Root Mean Squared Error
+print(paste0('Dummy RMSE: ', rmse_mean))
 
-plot(target_test, pred_y - target_test)
+print(paste0('improvement: ', (rmse_mean - rmse_pred), ' (', 100*(rmse_mean - rmse_pred)/rmse_mean, ' %)'))
+# 
+# plot(target_test, pred_y)
+# 
+# plot(target_test, pred_y - target_test)
 
-colnames(final_df)
+#colnames(final_df)
+
+
+# soft impute test
+
+svd_mat_y <- softImpute(final_df[c('userId',film_cols)]  %>% inner_join(train['userId']), trace=TRUE, type = "svd")
+
+df_svd_to_test <- final_df[c('userId',film_cols)]  %>% inner_join(test['userId'])
+df_svd_to_test[target_film] <- NA
+inp_matrix_y_svd <- softImpute::complete(df_svd_to_test, svd_mat_y)
+
+pred_y_svd <- inp_matrix_y_svd[[target_film]]
+
+rmse_pred_svd = sqrt(mean((target_test - pred_y_svd)^2)) #rmse - Root Mean Squared Error
+print(paste0('predicted RMSE: ',rmse_pred_svd))
+
+print(paste0('improvement: ', (rmse_mean - rmse_pred_svd), ' (', 100*(rmse_mean - rmse_pred_svd)/rmse_mean, ' %)'))
+
