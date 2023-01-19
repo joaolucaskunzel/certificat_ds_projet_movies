@@ -86,6 +86,6 @@ final_df <- user_summary %>% inner_join(movies_pivoted, by = 'userId')
 mov_id_name <- inp_movies_df %>% select(movieId,title = title_str)
 df_colmuns = (colnames(final_df))
 
-user_cols <- df_colmuns[2:69]
-film_cols <-df_colmuns[70:577]
+user_cols <- df_colmuns[2:70]
+film_cols <-df_colmuns[71:577]
 
