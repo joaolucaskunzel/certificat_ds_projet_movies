@@ -57,9 +57,14 @@ tage_inc<-c("userId","oldest_film_watched_ts")
 # train <- na_mean(train)
 # test <- na_mean(test)
 
-final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'),films_high_cor, target_film) #,films_high_cor
+final_df_filt <- final_df_w_films %>% 
+  select(tage_inc,starts_with('avg_'),starts_with('count_'), target_film,-count_dec_NA)%>% 
+  drop_na(target_film) %>% replace(is.na(.), 0)  #,films_high_cor
 
-train <- final_df_filt %>% sample_frac(0.9)
+#final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'),films_high_cor, target_film) #,films_high_cor
+
+
+train <- final_df_filt %>% sample_frac(0.8)
 test  <- final_df_filt %>% anti_join(train, by = 'userId')
 
 data_train <- data.matrix(train %>% select(-userId,-oldest_film_watched_ts, -target_film))
@@ -74,9 +79,10 @@ xgb_test = xgb.DMatrix(data = data_test, label = target_test)
 #===========TRAIN============
 watchlist = list(train=xgb_train, test=xgb_test)
 
-model = xgb.train(data = xgb_train, max.depth = 2, eta = 0.3, watchlist=watchlist, nrounds = 50, early_stopping_rounds = 1)
+model = xgb.train(data = xgb_train, max.depth = 2, eta = 0.3, watchlist=watchlist, nrounds = 500, early_stopping_rounds = 1)
 nround_cv <- model$best_iteration
-bstSparse <- xgboost(data = data_train, label = target_train, max.depth = 2, eta = 0.3, nrounds = nround_cv, objective = "reg:squarederror")
+bstSparse <- xgboost(data = data_train, label = target_train, max.depth = 5, eta = 0.3, nrounds = nround_cv, objective = "reg:squarederror")
+
 
 #================TEST=============
 pred_y = predict(bstSparse, data_test, target_test)
@@ -93,13 +99,20 @@ print(paste0('improvement: ', (rmse_mean - rmse_pred), ' (', 100*(rmse_mean - rm
 print(paste0('R2: ',1 - sum((target_test - pred_y)^2)/sum((target_test - mean(target_train))^2)))
 
 
-plot(target_test, pred_y)
+plot(target_test, pred_y, lwd = 0.1, type= "p")
 # 
  plot(target_test, pred_y - target_test)
 
+amPlot(target_test, pred_y)
+ 
+boxplot(pred_y~target_test)
+
+boxplot((pred_y - target_test)~target_test)
+
+
 #colnames(final_df)
 
-importance <- xgb.importance(feature_names = colnames(data_train), model = model)
+importance <- xgb.importance(feature_names = colnames(data_train), model = bstSparse)
 head(importance)
 
 barplot(importance$Gain, names.arg=importance$Feature, horiz)
