@@ -88,4 +88,3 @@ df_colmuns = (colnames(final_df))
 
 user_cols <- df_colmuns[2:70]
 film_cols <-df_colmuns[71:577]
-

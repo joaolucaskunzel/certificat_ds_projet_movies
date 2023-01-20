@@ -8,6 +8,9 @@ library(xgboost)
 library(caret)     
 library(imputeTS)
 
+library("softImpute")
+
+library(rAmCharts)
 
 cor_mat <- cor(movies_pivoted%>% select(-userId), use = 'pairwise.complete.obs')
 corrplot(cor_mat[1:30,1:30])
@@ -25,7 +28,7 @@ set.seed(1)
 target_film = '1'
 
 cor_film <- cor_mat[,target_film] 
-films_high_cor<-names(cor_film[abs(cor_film)>0.1])
+films_high_cor<-names(cor_film[abs(cor_film)>=0.0])
 
 #====mat complete=====
 svd_mat <- softImpute(final_df[film_cols], trace=TRUE, type = "svd")
@@ -54,9 +57,9 @@ tage_inc<-c("userId","oldest_film_watched_ts")
 # train <- na_mean(train)
 # test <- na_mean(test)
 
-final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'), target_film) #,films_high_cor
+final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'),films_high_cor, target_film) #,films_high_cor
 
-train <- final_df_filt %>% sample_frac(0.8)
+train <- final_df_filt %>% sample_frac(0.9)
 test  <- final_df_filt %>% anti_join(train, by = 'userId')
 
 data_train <- data.matrix(train %>% select(-userId,-oldest_film_watched_ts, -target_film))
@@ -86,13 +89,26 @@ rmse_mean = sqrt(mean((target_test - mean(target_train))^2)) #rmse - Root Mean S
 print(paste0('Dummy RMSE: ', rmse_mean))
 
 print(paste0('improvement: ', (rmse_mean - rmse_pred), ' (', 100*(rmse_mean - rmse_pred)/rmse_mean, ' %)'))
+
+print(paste0('R2: ',1 - sum((target_test - pred_y)^2)/sum((target_test - mean(target_train))^2)))
+
+
+plot(target_test, pred_y)
 # 
-# plot(target_test, pred_y)
-# 
-# plot(target_test, pred_y - target_test)
+ plot(target_test, pred_y - target_test)
 
 #colnames(final_df)
 
+importance <- xgb.importance(feature_names = colnames(data_train), model = model)
+head(importance)
+
+barplot(importance$Gain, names.arg=importance$Feature, horiz)
+
+
+
+
+
+amBarplot(data= importance, x='Feature',y='Gain', horiz =TRUE)
 
 # soft impute test
 
