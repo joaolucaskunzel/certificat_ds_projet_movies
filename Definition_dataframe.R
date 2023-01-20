@@ -1,15 +1,15 @@
 ### script creation dataframe d'aprentissage
 library(tidyverse)
 
-getwd()
-setwd("C:/Users/r083485/OneDrive - Volvo Group/R/Projet/Data")
+#getwd()
+#setwd("C:/Users/r083485/OneDrive - Volvo Group/R/Projet/Data")
 
 inp_movies_df<-read.csv("ml-latest-small/movies.csv")
 inp_ratings_df<-read.csv("ml-latest-small/ratings.csv")
 inp_tags_df<-read.csv("ml-latest-small/tags.csv")
 inp_links_df<-read.csv("ml-latest-small/links.csv")
 ####################################################
-inp_cast_df<-readRDS("C:/Users/r083485/OneDrive - Volvo Group/R/Projet/Doncast_small_final")
+inp_cast_df<-readRDS("Doncast_small_final")
 ####################################################
 
 
