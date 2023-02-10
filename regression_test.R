@@ -3,7 +3,7 @@
 inp_ratings_df<-read.csv("ml-latest/ratings.csv")
 
 # user_summary_no_ts<-readRDS("user_summary_v2_no_ts")
-user_summary<-readRDS("user_summary_v3_no_ts")
+user_summary<-readRDS("user_summary_v4_no_target_films")
 
 # test_dif=user_summary %>% filter(userId %in% user_summary_no_ts$userId)-user_summary_no_ts
 
@@ -23,16 +23,23 @@ library(rAmCharts)
 set.seed(1)
 
 target_film = '1'
-Y =  inp_ratings_df %>% filter(movieId == target_film) %>% select(userId,rating) 
+# Y =  inp_ratings_df %>% filter(movieId == target_film) %>% select(userId,rating) 
 
 final_df_filt <- user_summary %>% #select(-starts_with('avg_act'),-starts_with('count_act'),-starts_with('sd_act'),-starts_with('avg_dir'),-starts_with('count_dir'),-starts_with('sd_dir')) %>% 
   left_join(Y_ts)%>% 
   drop_na(rating)
+
+# final_df_filt <- final_df_filt %>%  filter(nbr_films_watched>=20) %>% 
+#   mutate(across(.cols = starts_with('avg_'), .fns = ~ (. - average_rating)/sd_user)) %>% 
+#   mutate(across(.cols = starts_with('count_'), .fns = ~ (.)/nbr_films_watched)) %>% 
+#   drop_na()
+
 #[,colnames(user_summary) %in% sc]
 final_df_filt<- final_df_filt%>%
                 mutate_all(~replace_na(.,0)) %>% 
                 filter(nbr_films_watched>=20)
 #final_df_filt <- completed_user_movie_df %>% select(tage_inc,starts_with('avg_'),starts_with('count_'),films_high_cor, target_film) #,films_high_cor
+
 
 
 train <- final_df_filt %>% sample_frac(0.7)
