@@ -1,4 +1,3 @@
-#install.packages('ggridges')
 library(corrplot)
 library(scales)
 library(FactoMineR)
@@ -9,10 +8,15 @@ library(ggridges)
 # imort data frames
 user_movie_df <- readRDS('user_movie_df')
 
-final_df <- readRDS('user_summary_v3_no_ts')
+final_df <- readRDS('user_summary_v4_no_target_films')
 Y_ts <- readRDS('Y_ts') 
 
 final_df<-final_df %>% mutate(across(.cols = starts_with('avg_'), .fns = ~ na_if(.x,0)))
+
+final_df_norm <- final_df %>% 
+                  mutate(across(.cols = starts_with('avg_'), .fns = ~ (. - average_rating)/sd_user)) %>% 
+                  mutate(across(.cols = starts_with('count_'), .fns = ~ (.)/nbr_films_watched)) 
+
 
 #========= Exploration descriptive données ==============
 # distribution Nbr films watched by user
@@ -97,21 +101,21 @@ final_df %>% filter(nbr_films_watched>=25) %>% select(starts_with('count_dec')) 
   # scale_x_discrete(labels = wrap_format(10))
 
 # Correlation plots for X
-cor_mat_films_gen <- cor(final_df%>%select(nbr_films_watched,average_rating,starts_with('avg_gen'),
+cor_mat_films_gen <- cor(final_df_norm%>%select(nbr_films_watched,average_rating,starts_with('avg_gen'),
                                            starts_with('count_gen')), use = 'pairwise.complete.obs')
 corrplot(cor_mat_films_gen[2:21,c(2:21)])
 
-cor_mat_films_dec <- cor(final_df%>%select(nbr_films_watched,average_rating,starts_with('avg_dec'),
+cor_mat_films_dec <- cor(final_df_norm%>%select(nbr_films_watched,average_rating,starts_with('avg_dec'),
                                            starts_with('count_dec')), use = 'pairwise.complete.obs')
 corrplot(cor_mat_films_dec[2:7,]) #
 
-cor_mat_films_dec_gen <- cor(final_df%>%select(nbr_films_watched,average_rating,starts_with('avg_gen'),
+cor_mat_films_dec_gen <- cor(final_df_norm%>%select(nbr_films_watched,average_rating,starts_with('avg_gen'),
                                                starts_with('count_gen'),starts_with('avg_dec'),
                                                starts_with('count_dec')), use = 'pairwise.complete.obs')
 corrplot(cor_mat_films_dec_gen[2:21,c(1,22:50)]) #
 corrplot(cor_mat_films_dec_gen[21:50,c(1,22:50)]) #
 
-cor_mat_films_gen_dir_act <- cor(final_df%>%select(nbr_films_watched,average_rating,
+cor_mat_films_gen_dir_act <- cor(final_df_norm%>%select(nbr_films_watched,average_rating,
                                                    starts_with('avg_gen'),starts_with('count_gen'),
                                                    starts_with('avg_dir'),starts_with('count_dir'),
                                                    starts_with('avg_dir'),starts_with('count_dir'),
@@ -122,10 +126,10 @@ corrplot(cor_mat_films_gen_dir_act[2:21,c(41:120)])
 
 #======== Toy Story =============
 
-df_ts <- final_df %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating') %>% select(-starts_with('sd'))
+df_ts_cor <- final_df %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating') %>% select(-starts_with('sd_'))
 
 
-cor_ts <- cor(df_ts)
+cor_ts <- cor(df_ts_cor)
                                            
 corrplot(cor_ts[c(3,133),1:42])
 
@@ -133,19 +137,113 @@ corrplot(cor_ts[c(3,133),43:52])
 
 corrplot(cor_ts[c(3,133),53:132])
 
+df_ts <- final_df %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating')
 
-#==notes et vues par genre
-df_ts %>% filter(nbr_films_watched>=20) %>%  select(starts_with('avg_genre')) %>% 
-  na_if(0) %>% 
-  pivot_longer(cols = everything())  %>%  mutate(name = gsub("_", " ", name)) %>%
+
+df_ts %>%  select(Toy_Story) %>% 
   ggplot()+
-  aes(x=name, y=value)+
-  geom_boxplot()+
-  scale_x_discrete(labels = wrap_format(10))
+  aes(Toy_Story)+
+  geom_histogram()
+
+df_ts %>% sample_frac(1) %>% 
+  select(Toy_Story,average_rating) %>% 
+  group_by(Toy_Story) %>% summarise(average_rating=mean(average_rating)) %>% 
+  ggplot()+
+  aes(x = average_rating, y = Toy_Story)+
+  geom_point()+
+  theme_bw()
+
+df_ts %>% sample_frac(1) %>% 
+  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
+  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
+  group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
+  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
+  ggplot()+
+    aes(x = value, y = Toy_Story)+
+    geom_point()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+df_ts %>% sample_frac(0.025) %>% 
+  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
+  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
+  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
+  ggplot()+
+    aes(x = value, y = Toy_Story)+
+    geom_point()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+
+df_ts %>% sample_frac(0.5) %>% 
+  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
+  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
+  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
+  ggplot()+
+    aes(x = value, y = Toy_Story)+
+    stat_density_2d()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+df_ts %>% sample_frac(1) %>% 
+  select(Toy_Story,nbr_films_watched, starts_with('count_gen')) %>% 
+  mutate(across(-matches(c('Toy_Story','nbr_films_watched')), ~  (.)/nbr_films_watched)) %>%
+  group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
+  gather(starts_with('count_gen'), key = "var", value = "value") %>% 
+  ggplot()+
+    aes(x = value, y = Toy_Story)+
+    geom_point()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
 
 
 
-plot(final_df %>% select(starts_with('avg_gen')))
+df_ts %>% sample_frac(0.5) %>% 
+  select(Toy_Story,starts_with('avg_dir')) %>% 
+  gather(starts_with('avg_dir'), key = "var", value = "value") %>% 
+  ggplot()+
+  aes(x = value, y = Toy_Story)+
+    stat_density_2d()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+
+df_ts %>% filter(nbr_films_watched>=20) %>%  select(Toy_Story, starts_with('avg_genre_Children')) %>% 
+  mutate(avg_genre_Children = cut(avg_genre_Children, breaks=c(0,2.5, 3.5, 4, 4.5, 5))) %>% 
+  drop_na() %>% 
+  ggplot()+
+    aes(x=Toy_Story, fill=avg_genre_Children)+
+    geom_histogram(aes(y = ..density..),position='identity',bins=125, alpha=0.5)+
+    facet_wrap(~avg_genre_Children, nrow=5)
+
+
+df_ts %>% filter(nbr_films_watched>=20) %>%  select(Toy_Story, starts_with('avg_genre_Horror')) %>% 
+  mutate(avg_genre_Horror = cut(avg_genre_Horror, breaks=c(0,2.5, 3.5, 4, 4.5, 5))) %>% 
+  drop_na() %>% 
+  ggplot()+
+  aes(x=Toy_Story, fill=avg_genre_Horror)+
+  geom_histogram(aes(y = ..density..),position='identity',bins=125, alpha=0.5)+
+  facet_wrap(~avg_genre_Horror, nrow=5)
+
+df_ts %>% filter(nbr_films_watched>=20) %>%  select(Toy_Story, starts_with('count_gen_Children')) %>% 
+  mutate(count_gen_Children = cut(count_gen_Children, breaks=c(0,5, 20, 50, 100, 500))) %>% 
+  drop_na() %>% 
+  ggplot()+
+  aes(x=Toy_Story, fill=count_gen_Children)+
+  geom_histogram(aes(y = ..density..),position='identity',bins=125, alpha=0.5)+
+  facet_wrap(~count_gen_Children, nrow=5)
+
+  
+
+
+
+
+
+
+
+
+
+
 
 user_movie_df %>% 
   select(userId,movieId, rating, genres) %>% 
@@ -171,10 +269,13 @@ user_movie_df %>%
 
 #=== Clustering ====
 # PCA
-pca_films <- prcomp(inp_matrix, scale = TRUE)
+final_df_mean_col <- na_mean(final_df)
+
+
+pca_films <- prcomp(final_df_mean_col, scale = TRUE)
 plot(pca_films)
 
-res.pca=PCA(inp_matrix)
+res.pca=PCA(final_df)
 names(res.pca)
 barplot(res.pca$eig[,1],
           names=paste("Dim",1:nrow(res.pca$eig)),
@@ -190,7 +291,7 @@ plot(res.pca$ind$coord[,c(1,2)])
 #Kmeans
 ratio=list()
 for (k in 1:12) {
-  clusters <- kmeans(t(inp_matrix),centers = k)
+  clusters <- kmeans(final_df_mean_col,centers = k)
   
   #plot(df, col=clusters$cluster+1)
   
@@ -202,26 +303,26 @@ for (k in 1:12) {
 }
 plot(1:k,ratio)
 
-clust_user_km <-  kmeans(inp_matrix,centers = 4)
+clust_user_km <-  kmeans(final_df_mean_col,centers = 4)
 clusters_users_km <- clust_user_km$cluster
-clust_film_km <-  kmeans(t(inp_matrix),centers = 4)
-clusters_films_km <- clust_film_km$cluster
+# clust_film_km <-  kmeans(t(inp_matrix),centers = 4)
+# clusters_films_km <- clust_film_km$cluster
 
 plot(res.pca$ind$coord[,c(1,2)], col=clusters_users_km)
-plot(res.pca$var$coord[,c(1,2)], col=clusters_films_km)
+# plot(res.pca$var$coord[,c(1,2)], col=clusters_films_km)
 
 # ACH
-cah_u <- hclust(dist(inp_matrix), method="ward.D2")
-plot(as.dendrogram(cah_u))
-plot(sort(cah_u$height,dec=T),type="h")
-gpcah <- cutree(cah_u,k=4)
-plot(res.pca$ind$coord[,c(1,2)], col=gpcah)
-
-cah_f <- hclust(dist(t(inp_matrix)), method="ward.D2")
-plot(as.dendrogram(cah_f))
-plot(sort(cah$height,dec=T),type="h")
-gpcah <- cutree(cah,k=4)
-plot(res.pca$ind$coord[,c(1,2)], col=gpcah)
+# cah_u <- hclust(dist(inp_matrix), method="ward.D2")
+# plot(as.dendrogram(cah_u))
+# plot(sort(cah_u$height,dec=T),type="h")
+# gpcah <- cutree(cah_u,k=4)
+# plot(res.pca$ind$coord[,c(1,2)], col=gpcah)
+# 
+# cah_f <- hclust(dist(t(inp_matrix)), method="ward.D2")
+# plot(as.dendrogram(cah_f))
+# plot(sort(cah$height,dec=T),type="h")
+# gpcah <- cutree(cah,k=4)
+# plot(res.pca$ind$coord[,c(1,2)], col=gpcah)
 
 
 #==== characterize cluster ================
