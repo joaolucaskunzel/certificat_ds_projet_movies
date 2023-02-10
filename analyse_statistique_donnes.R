@@ -6,15 +6,17 @@ library(tidyverse)
 library(ggridges)
 
 # imort data frames
-user_movie_df <- readRDS('user_movie_df')
+# user_movie_df <- readRDS('user_movie_df')
 
 final_df <- readRDS('user_summary_v4_no_target_films')
 Y_ts <- readRDS('Y_ts') 
+Y_films <- readRDS('Y_films')
+
 
 final_df<-final_df %>% mutate(across(.cols = starts_with('avg_'), .fns = ~ na_if(.x,0)))
 
 final_df_norm <- final_df %>% 
-                  mutate(across(.cols = starts_with('avg_'), .fns = ~ (. - average_rating)/sd_user)) %>% 
+                  mutate(across(.cols = starts_with('avg_'), .fns = ~ (. - average_rating))) %>% 
                   mutate(across(.cols = starts_with('count_'), .fns = ~ (.)/nbr_films_watched)) 
 
 
@@ -126,11 +128,11 @@ corrplot(cor_mat_films_gen_dir_act[2:21,c(41:120)])
 
 #======== Toy Story =============
 
-df_ts_cor <- final_df %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating') %>% select(-starts_with('sd_'))
+df_ts_cor <- final_df_norm %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating') %>% select(-starts_with('sd_'))
 
 
-cor_ts <- cor(df_ts_cor)
-                                           
+cor_ts <- cor(df_ts_cor, use = 'pairwise.complete.obs')
+
 corrplot(cor_ts[c(3,133),1:42])
 
 corrplot(cor_ts[c(3,133),43:52])
@@ -138,6 +140,7 @@ corrplot(cor_ts[c(3,133),43:52])
 corrplot(cor_ts[c(3,133),53:132])
 
 df_ts <- final_df %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating')
+df_ts_norm <- final_df_norm %>% inner_join(Y_ts) %>% rename(Toy_Story = 'rating')
 
 
 df_ts %>%  select(Toy_Story) %>% 
@@ -153,9 +156,17 @@ df_ts %>% sample_frac(1) %>%
   geom_point()+
   theme_bw()
 
-df_ts %>% sample_frac(1) %>% 
+df_ts_norm %>% sample_frac(0.05) %>% 
   select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
-  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
+  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
+  ggplot()+
+  aes(x = value, y = Toy_Story)+
+    geom_point()+
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+df_ts_norm %>% sample_frac(1) %>% 
+  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
   group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
   gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
   ggplot()+
@@ -164,30 +175,19 @@ df_ts %>% sample_frac(1) %>%
     facet_wrap(~ var, scales = "free") +
     theme_bw()
 
-df_ts %>% sample_frac(0.025) %>% 
-  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
-  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
+
+
+df_ts_norm %>% sample_frac(0.5) %>% 
+  select(Toy_Story,average_rating, starts_with('avg_genre')) %>% 
   gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
   ggplot()+
     aes(x = value, y = Toy_Story)+
-    geom_point()+
+    geom_bin2d(bins=9)+
     facet_wrap(~ var, scales = "free") +
     theme_bw()
 
-
-df_ts %>% sample_frac(0.5) %>% 
-  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
-  mutate(across(-matches(c('Toy_Story','average_rating')), ~  (. - average_rating)/sd_user)) %>%
-  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
-  ggplot()+
-    aes(x = value, y = Toy_Story)+
-    stat_density_2d()+
-    facet_wrap(~ var, scales = "free") +
-    theme_bw()
-
-df_ts %>% sample_frac(1) %>% 
+df_ts_norm %>% sample_frac(1) %>% 
   select(Toy_Story,nbr_films_watched, starts_with('count_gen')) %>% 
-  mutate(across(-matches(c('Toy_Story','nbr_films_watched')), ~  (.)/nbr_films_watched)) %>%
   group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
   gather(starts_with('count_gen'), key = "var", value = "value") %>% 
   ggplot()+
@@ -198,12 +198,13 @@ df_ts %>% sample_frac(1) %>%
 
 
 
-df_ts %>% sample_frac(0.5) %>% 
+df_ts_norm %>% sample_frac(0.5) %>% 
   select(Toy_Story,starts_with('avg_dir')) %>% 
+  group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
   gather(starts_with('avg_dir'), key = "var", value = "value") %>% 
   ggplot()+
   aes(x = value, y = Toy_Story)+
-    stat_density_2d()+
+    geom_point()+
     facet_wrap(~ var, scales = "free") +
     theme_bw()
 
