@@ -148,6 +148,15 @@ df_ts %>%  select(Toy_Story) %>%
   aes(Toy_Story)+
   geom_histogram()
 
+
+df_ts %>% sample_frac(1) %>% 
+  select(Toy_Story,average_rating) %>% 
+  ggplot()+
+  aes(x = average_rating, y = Toy_Story)+
+  geom_point()+
+  theme_bw()
+
+
 df_ts %>% sample_frac(1) %>% 
   select(Toy_Story,average_rating) %>% 
   group_by(Toy_Story) %>% summarise(average_rating=mean(average_rating)) %>% 
@@ -164,6 +173,16 @@ df_ts_norm %>% sample_frac(0.05) %>%
     geom_point()+
     facet_wrap(~ var, scales = "free") +
     theme_bw()
+
+df_ts%>% sample_frac(1) %>% 
+  select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
+  group_by(Toy_Story) %>% summarise_all(mean, na.rm = TRUE) %>% 
+  gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
+  ggplot()+
+  aes(x = value, y = Toy_Story)+
+  geom_point()+
+  facet_wrap(~ var, scales = "free") +
+  theme_bw()
 
 df_ts_norm %>% sample_frac(1) %>% 
   select(Toy_Story,average_rating, sd_user, starts_with('avg_genre')) %>% 
