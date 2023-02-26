@@ -7,7 +7,7 @@ inp_ratings_df<-read.csv("ml-latest/ratings.csv")
 #inp_tags_df<-read.csv("ml-latest/tags.csv")
 #inp_links_df<-read.csv("ml-latest/links.csv")
 ####################################################
-inp_cast_df<-readRDS("Doncast_small_final")
+inp_cast_df<-readRDS("data/Doncast_small_final")
 ####################################################
 
 inp_movies_df <- inp_movies_df %>% mutate(year = as.numeric(str_extract(title, "(?<=\\()[0-9]{4}(?=\\))")))

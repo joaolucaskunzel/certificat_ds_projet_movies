@@ -8,9 +8,9 @@ library(ggridges)
 # imort data frames
 # user_movie_df <- readRDS('user_movie_df')
 
-final_df <- readRDS('user_summary_v4_no_target_films')
-Y_ts <- readRDS('Y_ts') 
-Y_films <- readRDS('Y_films')
+final_df <- readRDS('data/user_summary_v4_no_target_films')
+Y_ts <- readRDS('data/Y_ts') 
+Y_films <- readRDS('data/Y_films')
 
 
 final_df<-final_df %>% mutate(across(.cols = starts_with('avg_'), .fns = ~ na_if(.x,0)))
