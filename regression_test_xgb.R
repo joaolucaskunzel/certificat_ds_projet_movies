@@ -94,14 +94,8 @@ R2_nfilms <- data.frame(cbind(nbr_films_watched=test$nbr_films_watched,target_te
    xlim(0,5)+
    ylim(0,5)+
    geom_abline(intercept = 0, slope = 1, color="blue", 
-               linetype="dashed", size=0.5)+
+               linetype="dashed", size=0.5)
  
- 
- abline(a=0,b=1, col = "blue", lwd = 2)
- 
- 
-   plot(ylim=c(0,5),xlim=c(0,5))
- lines(predict(lm(pred_y~target_test)),col='green')
 
   
   
@@ -120,6 +114,11 @@ R2_nfilms <- data.frame(cbind(nbr_films_watched=test$nbr_films_watched,target_te
 # 
 # qqplot(target_test,pred_y)
 
+p1<-hist((target_test - mean(target_train)), breaks = 10,freq=FALSE)
+p2<-hist((target_test - pred_y), breaks = 120,freq=FALSE)
+
+plot( p1, col=rgb(0,0,1,1/4), xlim=c(-4,4),freq=FALSE)  # first histogram
+plot( p2, col=rgb(1,0,0,1/4), xlim=c(-4,4), add=T,freq=FALSE)  # second
 
 # # 
 #plot(target_test, pred_y - target_test)
