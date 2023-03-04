@@ -62,7 +62,7 @@ final_df %>% filter(nbr_films_watched>=25 & nbr_films_watched<=500) %>%
   select(oldest_film_watched_ts) %>%  
   ggplot()+
   aes(x=oldest_film_watched_ts)+
-  stat_ecdf()+
+  stat_ecdf()+everything
   scale_x_continuous(breaks=c(seq(1910,2000,10)))+
   scale_y_continuous(breaks=c(seq(0,1,0.125)))
 
@@ -70,7 +70,7 @@ final_df %>% filter(nbr_films_watched>=25 & nbr_films_watched<=500) %>%
 #==notes et vues par genre
 final_df %>% filter(nbr_films_watched>=25) %>%  select(starts_with('avg_genre')) %>% 
   na_if(0) %>% 
-  pivot_longer(cols = everything())  %>%  mutate(name = gsub("_", " ", name)) %>%
+  pivot_longer(cols = ())  %>%  mutate(name = gsub("_", " ", name)) %>%
   ggplot()+
   aes(x=name, y=value)+
   geom_boxplot()+
@@ -153,7 +153,7 @@ df_ts %>% sample_frac(1) %>%
   select(Toy_Story,average_rating) %>% 
   ggplot()+
   aes(x = average_rating, y = Toy_Story)+
-  geom_point()+
+  geom_point(position = 'jitter')+
   theme_bw()
 
 
@@ -170,7 +170,7 @@ df_ts_norm %>% sample_frac(0.05) %>%
   gather(starts_with('avg_genre'), key = "var", value = "value") %>% 
   ggplot()+
   aes(x = value, y = Toy_Story)+
-    geom_point()+
+    geom_point(position = 'jitter')+
     facet_wrap(~ var, scales = "free") +
     theme_bw()
 
